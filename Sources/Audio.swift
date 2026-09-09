@@ -83,7 +83,7 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         let devices = inputDevices()
         guard let selected = uid.isEmpty ? devices.first(where: { $0.id == defaultInput() }) : devices.first(where: { $0.uid == uid }),
               let device = AVCaptureDevice(uniqueID: selected.uid) else {
-            throw DictationError(L("找不到輸入裝置，請重新選擇麥克風。"))
+            throw DictationError(L("Input device not found. Choose a microphone."))
         }
         let session = AVCaptureSession()
         let input = try AVCaptureDeviceInput(device: device)
@@ -93,7 +93,7 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
             AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false]
         session.beginConfiguration()
         guard session.canAddInput(input), session.canAddOutput(output) else {
-            session.commitConfiguration(); throw DictationError(L("無法開啟所選麥克風。"))
+            session.commitConfiguration(); throw DictationError(L("Unable to open the selected microphone."))
         }
         session.addInput(input); session.addOutput(output); session.commitConfiguration()
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("OrcaDictation-\(UUID().uuidString)")
@@ -113,7 +113,7 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         }
         observers.append(NotificationCenter.default.addObserver(forName: AVCaptureDevice.wasDisconnectedNotification, object: device, queue: .main) { [weak self] _ in self?.onDeviceChange?() })
         session.startRunning()
-        guard session.isRunning else { _ = stop(); cleanup(); throw DictationError(L("收音未能啟動，請檢查麥克風權限。")) }
+        guard session.isRunning else { _ = stop(); cleanup(); throw DictationError(L("Recording could not start. Check microphone access.")) }
         return selected.name
     }
 
@@ -124,17 +124,17 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
               let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee,
               asbd.mSampleRate == rate, asbd.mChannelsPerFrame == 1, asbd.mBitsPerChannel == 32,
               asbd.mFormatFlags & kAudioFormatFlagIsFloat != 0 else {
-            failure = L("收音格式無效。"); return
+            failure = L("Unsupported microphone format."); return
         }
         let count = min(CMSampleBufferGetNumSamples(sampleBuffer), Int(limit - frames))
         guard count > 0, let buffer = AVAudioPCMBuffer(pcmFormat: file!.processingFormat, frameCapacity: AVAudioFrameCount(count)) else { return }
         buffer.frameLength = AVAudioFrameCount(count)
         guard CMSampleBufferCopyPCMDataIntoAudioBufferList(sampleBuffer, at: 0, frameCount: Int32(count), into: buffer.mutableAudioBufferList) == noErr,
-              let samples = buffer.floatChannelData?[0] else { failure = L("無法讀取收音資料。"); return }
+              let samples = buffer.floatChannelData?[0] else { failure = L("Unable to read microphone audio."); return }
         var power: Double = 0
         for i in 0..<count { power += Double(samples[i] * samples[i]) }
         energy += power; peak = sqrt(power / Double(count)); lastBuffer = Date()
-        do { try file?.write(from: buffer) } catch { failure = error.localizedDescription }
+        do { try file?.write(from: buffer) } catch { failure = L("Unable to save microphone audio. Check available disk space.") }
         frames += AVAudioFramePosition(count)
         if frames >= limit { DispatchQueue.main.async { [weak self] in self?.onLimit?() } }
     }
@@ -145,8 +145,8 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         queue.sync {} // Drain already-delivered buffers before closing the WAV.
         lock.lock()
         active = false; file = nil
-        let error = failure ?? (frames < AVAudioFramePosition(rate) ? L("錄音不足一秒。") : nil)
-            ?? (sqrt(energy / Double(max(frames, 1))) < 0.001 ? L("沒有收到清晰聲音，未貼上文字。") : nil)
+        let error = failure ?? (frames < AVAudioFramePosition(rate) ? L("Recording is shorter than one second.") : nil)
+            ?? (sqrt(energy / Double(max(frames, 1))) < 0.001 ? L("No clear audio detected. Nothing pasted.") : nil)
         lock.unlock()
         session = nil; output = nil
         return error

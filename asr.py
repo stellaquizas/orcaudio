@@ -13,9 +13,15 @@ os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_T
 os.umask(0o077)
 
 
+class ASRError(ValueError):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
 def load_model():
     if not (MODEL / 'download.json').exists():
-        raise RuntimeError('Model missing/incomplete. Download a model in Orcaudio Settings; no automatic download.')
+        raise ASRError('model_missing', 'Model missing/incomplete. Download a model in Orcaudio Settings; no automatic download.')
     start = time.perf_counter()
     from mlx_audio.stt import load
     import mlx.core as mx
@@ -31,7 +37,10 @@ def audio(path):
     import numpy as np
     from scipy.io import wavfile
     from scipy.signal import resample_poly
-    sr, data = wavfile.read(path)
+    try:
+        sr, data = wavfile.read(path)
+    except (OSError, ValueError) as error:
+        raise ASRError('audio_io', 'Unable to read recording') from error
     if data.dtype.kind == 'i':
         data = data.astype(np.float32) / (2 ** (data.dtype.itemsize * 8 - 1))
     elif data.dtype == np.uint8:
@@ -41,14 +50,14 @@ def audio(path):
     if data.ndim == 2:
         data = data.mean(axis=1)
     if not 1 <= len(data) / sr <= 120:
-        raise ValueError('Recording must be 1–120 seconds')
+        raise ASRError('audio_duration', 'Recording must be 1–120 seconds')
     if not np.isfinite(data).all():
-        raise ValueError('Invalid audio samples')
+        raise ASRError('invalid_audio', 'Invalid audio samples')
     if sr != 16000:
         gcd = math.gcd(sr, 16000)
         data = resample_poly(data, 16000 // gcd, sr // gcd)
     if float(np.sqrt(np.mean(data ** 2))) < 0.001:
-        raise ValueError('Silence / signal too quiet; no transcription')
+        raise ASRError('silence', 'Silence / signal too quiet; no transcription')
     return data
 
 
@@ -63,9 +72,9 @@ def transcribe(model, path, language):
     mx.synchronize()
     raw = result.text.strip()
     if not raw:
-        raise ValueError('Empty recognition result')
+        raise ASRError('empty_result', 'Empty recognition result')
     if result.generation_tokens >= 2048:
-        raise ValueError('Token limit reached; possible incomplete transcript')
+        raise ASRError('token_limit', 'Token limit reached; possible incomplete transcript')
     text = OpenCC('s2t').convert(raw)
     return {'raw': raw, 'text': text, 'language': language, 'seconds': time.perf_counter() - start,
             'audio_seconds': len(samples) / 16000,

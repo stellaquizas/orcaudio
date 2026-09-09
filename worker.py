@@ -60,7 +60,7 @@ def main():
                 emit(type='result', id=ident, text=result['text'], seconds=result['seconds'])
                 del result
         except Exception as exc:
-            emit(type='error', id=request.get('id', '') if isinstance(request, dict) else '', message=str(exc))
+            emit(type='error', id=request.get('id', '') if isinstance(request, dict) else '', code=getattr(exc, 'code', 'worker_failure'))
 
 
 if __name__ == '__main__':

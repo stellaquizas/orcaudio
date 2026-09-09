@@ -144,22 +144,22 @@ struct ClipboardSnapshot {
 /// One paste attempt. Never emits Return; never retries; never activates Orca.
 func pasteResult(_ text: String, guard focus: FocusGuard, completion: @escaping (String) -> Void) {
     guard focus.canPaste, let snapshot = focus.snapshot else {
-        completion(L("輸入位置已改變，請按「複製」。")); return
+        completion(L("Input changed. Select Copy to paste manually.")); return
     }
     let board = NSPasteboard.general
     let old = ClipboardSnapshot(board)
-    guard focus.canPaste else { completion(L("輸入位置已改變，請按「複製」。")); return }
+    guard focus.canPaste else { completion(L("Input changed. Select Copy to paste manually.")); return }
     board.clearContents()
-    guard board.setString(text, forType: .string) else { completion(L("未能複製結果，請重新按「複製」。")); return }
+    guard board.setString(text, forType: .string) else { completion(L("Unable to copy. Please select Copy again.")); return }
     let changeCount = board.changeCount
     guard focus.canPaste, board.changeCount == changeCount else {
-        completion(L("輸入位置已改變，結果已保留於剪貼板。")); return
+        completion(L("Input changed. Your text is on the clipboard.")); return
     }
     focus.stop()
     guard let source = CGEventSource(stateID: .combinedSessionState),
           let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
           let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
-        completion(L("結果已複製，請手動貼上。")); return
+        completion(L("Copied. Please paste manually.")); return
     }
     down.flags = .maskCommand; up.flags = .maskCommand
     down.postToPid(snapshot.pid); up.postToPid(snapshot.pid)
@@ -169,9 +169,9 @@ func pasteResult(_ text: String, guard focus: FocusGuard, completion: @escaping 
         } == true
         if verified, board.changeCount == changeCount, old.complete {
             old.restore(board)
-            completion(L("已貼上，請檢查後手動送出。"))
+            completion(L("Pasted. Review your text before sending."))
         } else {
-            completion(L("已嘗試貼上；結果保留供複製，不會重試。"))
+            completion(L("Paste attempted. Check Orca before pasting again."))
         }
     }
 }

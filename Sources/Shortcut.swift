@@ -9,7 +9,7 @@ struct Shortcut {
     static func load() -> Shortcut {
         let d = UserDefaults.standard
         guard d.object(forKey: "shortcutKey") != nil else { return .standard }
-        return Shortcut(key: UInt32(d.integer(forKey: "shortcutKey")), modifiers: UInt32(d.integer(forKey: "shortcutModifiers")), label: d.string(forKey: "shortcutLabel") ?? L("自訂快捷鍵"))
+        return Shortcut(key: UInt32(d.integer(forKey: "shortcutKey")), modifiers: UInt32(d.integer(forKey: "shortcutModifiers")), label: d.string(forKey: "shortcutLabel") ?? L("Custom shortcut"))
     }
     func save() {
         let d = UserDefaults.standard
@@ -61,7 +61,7 @@ final class ShortcutField: NSTextField {
     override var acceptsFirstResponder: Bool { true }
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
-        stringValue = L("按下新快捷鍵（Escape 取消）")
+        stringValue = L("Press a shortcut (Escape to cancel)")
     }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { stringValue = Shortcut.load().label; window?.makeFirstResponder(nil); return }

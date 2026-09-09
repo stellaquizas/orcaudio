@@ -26,7 +26,7 @@ final class Worker {
     private func launch() throws {
         guard FileManager.default.fileExists(atPath: Runtime.python(root: root).path),
               FileManager.default.fileExists(atPath: root.appendingPathComponent("models/Qwen3-ASR-1.7B-8bit/download.json").path) else {
-            throw DictationError(L("模型尚未下載。請在設定的模型下載選單下載。"))
+            throw DictationError(L("No model installed. Choose Download in Settings."))
         }
         let p = Process(), stdin = Pipe(), stdout = Pipe()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/sandbox-exec")
@@ -39,7 +39,7 @@ final class Worker {
             DispatchQueue.main.async {
                 guard let self, self.generation == token else { return }
                 self.loaded = false; self.activeBytes = nil; self.cacheBytes = nil; self.metricsDate = nil
-                self.onMessage?(["type": "error", "message": String(format: L("辨識程序已結束（%d）。請重新開始。"), process.terminationStatus)])
+                self.onMessage?(["type": "error", "code": "worker_exited", "exit_status": process.terminationStatus])
             }
         }
         loaded = false

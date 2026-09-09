@@ -44,7 +44,7 @@ final class ModelDownload {
                 }
             }
             p.waitUntilExit()
-            let error = completed && p.terminationStatus == 0 ? nil : (failure ?? L("下載失敗，請檢查網絡後重試。"))
+            let error = completed && p.terminationStatus == 0 ? nil : (failure ?? L("Download failed. Check your connection and try again."))
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.generation == token else { return }
                 self.active = false; self.process = nil; self.onChange?(); self.onFinish?(error)

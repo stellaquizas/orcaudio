@@ -18,7 +18,7 @@ struct AutoLaunch {
             if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
             return
         }
-        guard let bundled = Bundle.main.resourceURL?.appendingPathComponent("OrcaWatcher"), FileManager.default.fileExists(atPath: bundled.path) else { throw DictationError(L("找不到啟動助手，請重新安裝 Orcaudio。")) }
+        guard let bundled = Bundle.main.resourceURL?.appendingPathComponent("OrcaWatcher"), FileManager.default.fileExists(atPath: bundled.path) else { throw DictationError(L("Launch helper missing. Reinstall Orcaudio.")) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: plist.deletingLastPathComponent(), withIntermediateDirectories: true)
         let helper = directory.appendingPathComponent("OrcaWatcher")
@@ -35,7 +35,7 @@ struct AutoLaunch {
         _ = try launchctl(["enable", service])
         guard try launchctl(["bootstrap", "gui/\(getuid())", plist.path]) == 0 else {
             try? FileManager.default.removeItem(at: plist)
-            throw DictationError(L("未能啟用自動啟動，請再試一次。"))
+            throw DictationError(L("Could not enable automatic launch. Please try again."))
         }
     }
 }
