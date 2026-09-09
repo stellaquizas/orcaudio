@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Assets/AppIcon.png" alt="Orcaudio app icon" width="128" height="128">
+</p>
+
 # Orcaudio
 
 Local Cantonese + English dictation for Orca on Apple Silicon Macs.
@@ -14,7 +18,7 @@ Speak naturally, insert text into the focused Orca input, then review and send i
 
 ## Requirements and first use
 
-Apple Silicon Mac, macOS 14 or later. Intel builds are not provided. Tested on an M2 Max with macOS 26.6.2; other supported versions still need device validation.
+Apple Silicon Mac, macOS 14 or later. Intel builds are not provided.
 
 1. Put the standalone app in Applications and open it.
 2. In Settings, download **Qwen3-ASR 1.7B · 8-bit** (approximately 2.47 GB). The app ships without a model.
@@ -61,7 +65,7 @@ Output: `release/Orcaudio.app`. End users do not need Python, uv or Xcode. Do no
 
 Set `ORCAUDIO_VERSION` when building an assigned release version. Settings reads the bundle version; the current development version is 0.3.0.
 
-Builds currently use local ad-hoc signing. They are not notarized or published releases. A fresh-machine installation/download check and the chosen distribution signing workflow remain release requirements. Rebuilding may require macOS permissions to be granted again.
+The build script applies local ad-hoc signing. Rebuilding may require macOS permissions to be granted again.
 
 ## Source layout
 
