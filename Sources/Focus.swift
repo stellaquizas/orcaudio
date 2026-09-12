@@ -22,7 +22,7 @@ func axRange(_ element: AXUIElement) -> CFRange? {
 final class OrcaAccessibility {
     private var observers: [NSObjectProtocol] = []
     static func prepare(_ application: NSRunningApplication) {
-        guard AXIsProcessTrusted(), application.bundleIdentifier == "com.stablyai.orca" else { return }
+        guard AXIsProcessTrusted(), SupportedApp.accepts(application.bundleIdentifier) else { return }
         let element = AXUIElementCreateApplication(application.processIdentifier)
         AXUIElementSetMessagingTimeout(element, 0.15)
         _ = AXUIElementSetAttributeValue(element, "AXManualAccessibility" as CFString, kCFBooleanTrue)
@@ -35,7 +35,7 @@ final class OrcaAccessibility {
                 if let app = event.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication { Self.prepare(app) }
             })
         }
-        for app in NSRunningApplication.runningApplications(withBundleIdentifier: "com.stablyai.orca") { Self.prepare(app) }
+        for app in workspace.runningApplications { Self.prepare(app) }
     }
     func stop() {
         for observer in observers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
@@ -56,7 +56,7 @@ struct FocusSnapshot {
 
     static func capture() -> FocusSnapshot? {
         guard AXIsProcessTrusted(), let front = NSWorkspace.shared.frontmostApplication,
-              front.bundleIdentifier == "com.stablyai.orca" else { return nil }
+              SupportedApp.accepts(front.bundleIdentifier) else { return nil }
         OrcaAccessibility.prepare(front)
         let app = AXUIElementCreateApplication(front.processIdentifier)
         AXUIElementSetMessagingTimeout(app, 0.15)
@@ -65,10 +65,25 @@ struct FocusSnapshot {
               let role = ax(element, kAXRoleAttribute) as? String,
               [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole].contains(role),
               ax(element, kAXSubroleAttribute) as? String != kAXSecureTextFieldSubrole else { return nil }
-        return FocusSnapshot(pid: front.processIdentifier, app: app, window: window, element: element,
-            value: ax(element, kAXValueAttribute) as? String, range: axRange(element), role: role,
-            description: ax(element, kAXDescriptionAttribute) as? String ?? "")
+        return make(pid: front.processIdentifier, app: app, window: window, element: element)
     }
+    static func make(pid: pid_t, app: AXUIElement, window: AXUIElement, element: AXUIElement) -> FocusSnapshot {
+        var parent: AXUIElement? = element
+        var web: AXUIElement?
+        for _ in 0..<60 {
+            guard let current = parent else { break }
+            if ax(current, kAXRoleAttribute) as? String == "AXWebArea" { web = current; break }
+            parent = axElement(current, kAXParentAttribute)
+        }
+        return FocusSnapshot(pid: pid, app: app, window: window, element: element,
+            value: ChatInput.textValue(element), range: axRange(element),
+            role: ax(element, kAXRoleAttribute) as? String ?? "", description: "",
+            webArea: web, documentURL: web.flatMap { ax($0, kAXURLAttribute) }.map { String(describing: $0) },
+            cursorParagraphs: ChatInput.cursorParagraphs(element))
+    }
+    var webArea: AXUIElement? = nil
+    var documentURL: String? = nil
+    var cursorParagraphs: [String]? = nil
 
     func sameTarget() -> Bool {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid,
@@ -77,12 +92,15 @@ struct FocusSnapshot {
         return true
     }
     func unchanged() -> Bool {
-        guard sameTarget(), ax(element, kAXValueAttribute) as? String == value else { return false }
+        guard sameTarget(), ChatInput.textValue(element) == value,
+              webArea.flatMap({ ax($0, kAXURLAttribute) }).map({ String(describing: $0) }) == documentURL,
+              ax(element, kAXEnabledAttribute) as? Bool != false else { return false }
         let currentRange = axRange(element)
         return currentRange?.location == range?.location && currentRange?.length == range?.length
     }
     func expected(_ insertion: String) -> String? {
-        guard let value, let range, range.location >= 0, range.length >= 0,
+        let insertionRange = cursorParagraphs.map { ChatInput.logicalRange(range, paragraphs: $0) } ?? range
+        guard let value, let range = insertionRange, range.location >= 0, range.length >= 0,
               range.location <= (value as NSString).length,
               range.length <= (value as NSString).length - range.location else { return nil }
         return (value as NSString).replacingCharacters(in: NSRange(location: range.location, length: range.length), with: insertion)
@@ -193,13 +211,13 @@ func pasteResult(_ text: String, guard focus: FocusGuard, completion: @escaping 
     down.postToPid(snapshot.pid); up.postToPid(snapshot.pid)
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
         let verified = snapshot.sameTarget() && snapshot.expected(text).map { expected in
-            ax(snapshot.element, kAXValueAttribute) as? String == expected
+            ChatInput.textValue(snapshot.element) == expected
         } == true
         if verified, board.changeCount == changeCount, old.complete {
             old.restore(board)
             completion(L("Pasted. Review your text before sending."))
         } else {
-            completion(L("Paste attempted. Check Orca before pasting again."))
+            completion(L("Paste attempted. Check the input before pasting again."))
         }
     }
 }

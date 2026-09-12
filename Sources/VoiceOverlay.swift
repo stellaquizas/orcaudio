@@ -35,7 +35,7 @@ struct VoiceAnchor {
                elementRect(s.window)?.intersects(candidate.insetBy(dx: -1, dy: -1)) != true { target = nil }
             if target == nil, let rect = elementRect(s.element), rect.width >= 100, rect.height >= 20, rect.height < 250 { target = rect }
         }
-        if target == nil, let app = NSWorkspace.shared.frontmostApplication, app.bundleIdentifier == "com.stablyai.orca" {
+        if target == nil, let app = NSWorkspace.shared.frontmostApplication, SupportedApp.accepts(app.bundleIdentifier) {
             let element = AXUIElementCreateApplication(app.processIdentifier)
             AXUIElementSetMessagingTimeout(element, 0.1)
             if let window = axElement(element, kAXFocusedWindowAttribute), let rect = elementRect(window) {

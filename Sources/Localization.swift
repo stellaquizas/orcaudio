@@ -8,6 +8,20 @@ func L(_ english: String) -> String {
 }
 
 let traditionalChineseStrings: [String: String] = [
+    "Supported apps": "支援的 App",
+    "Launch with enabled apps": "隨已啟用的 App 啟動",
+    "ChatGPT includes Codex mode. Only chat inputs are supported.": "ChatGPT 包括 Codex 模式。僅支援聊天輸入框。",
+    "Switch to an enabled app to dictate.": "請切換至已啟用的支援 App。",
+    "No available chat input found.": "找不到可用的聊天輸入框。",
+    "Select the chat input, then try again.": "請先點選聊天輸入框，再試一次。",
+    "Return to the chat before dictating.": "請先返回聊天畫面，再開始錄音。",
+    "Input changed. Try your shortcut again.": "輸入位置已改變，請重新按快捷鍵。",
+    "Unable to focus the chat input. Click it and try again.": "無法聚焦聊天輸入框，請點選後再試。",
+    "Microphone allowed. Return to your app and try again.": "麥克風已允許；回到支援的 App 再按快捷鍵。",
+    "Start recording": "開始錄音",
+    "Finding chat input": "正在尋找輸入框",
+    "Paste attempted. Check the input before pasting again.": "已嘗試貼上；請檢查輸入框後才手動貼上。",
+
     "Ready": "準備就緒",
     "Stop": "停止",
     "Copy": "複製",

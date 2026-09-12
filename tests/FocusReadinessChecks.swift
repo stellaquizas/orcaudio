@@ -10,7 +10,7 @@ import AppKit
   app.beginRecording(guardObject:missing)
   assert(app.phase == .idle && app.recorder.url == nil && !app.worker.loaded)
   assert(app.focus == nil)
-  assert(app.stateText == "Orca input is not ready. Click the input and try your shortcut again.")
+  assert(app.stateText == "Unable to focus the chat input. Click it and try again.")
   app.hidePanel()
   print("PASS: unavailable input fails before recording instead of silently producing copy-only results")
  }

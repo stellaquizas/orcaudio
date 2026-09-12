@@ -60,7 +60,7 @@ extension AppDelegate {
         icon.widthAnchor.constraint(equalToConstant: 64).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 64).isActive = true
         let name = caption("Orcaudio", size: 28); name.font = .systemFont(ofSize: 28, weight: .semibold)
-        let heading = NSStackView(views: [icon, vertical([name, caption(L("Your voice, at home in Orca."), size: 13, secondary: true)], spacing: 4)])
+        let heading = NSStackView(views: [icon, vertical([name, caption(L("On-device dictation. You stay in control."), size: 13, secondary: true)], spacing: 4)])
         heading.spacing = 15; heading.alignment = .centerY
         heading.heightAnchor.constraint(equalToConstant: 64).isActive = true
 
@@ -91,9 +91,21 @@ extension AppDelegate {
         language.selectItem(at: UserDefaults.standard.string(forKey: "language") == "Cantonese" ? 1 : 0)
         language.target = self; language.action = #selector(selectLanguage)
         language.widthAnchor.constraint(equalToConstant: 300).isActive = true; language.setAccessibilityLabel(L("Speech language"))
-        let launch = NSButton(checkboxWithTitle: L("Launch with Orca"), target: self, action: #selector(toggleAutoLaunch))
+        let launch = NSButton(checkboxWithTitle: L("Launch with enabled apps"), target: self, action: #selector(toggleAutoLaunch))
         launch.state = AutoLaunch.enabled ? .on : .off; launchCheckbox = launch
+        appCheckboxes.removeAll()
+        let enabledApps = SupportedApp.enabled()
+        let choices = SupportedApp.allCases.map { app -> NSButton in
+            let button = NSButton(checkboxWithTitle: app.name, target: self, action: #selector(toggleSupportedApp))
+            button.identifier = NSUserInterfaceItemIdentifier(app.rawValue)
+            button.state = enabledApps.contains(app) ? .on : .off
+            appCheckboxes[app] = button
+            return button
+        }
+        let appChoices = NSStackView(views: choices); appChoices.spacing = 16
         let general = card(L("General"), symbol: "slider.horizontal.3", views: [
+            row(L("Supported apps"), [appChoices]),
+            caption(L("ChatGPT includes Codex mode. Only chat inputs are supported."), size: 11, secondary: true),
             row(L("Startup"), [launch]), row(L("App language"), [uiLanguage]), row(L("Microphone"), [microphone, refresh]),
             row(L("Shortcut"), [field]), row(L("Speech language"), [language]),
             caption(L("App language does not change transcription language."), secondary: true)
@@ -177,6 +189,17 @@ extension AppDelegate {
         }
         stopButton.setAccessibilityLabel(L("Stop")); copyButton.setAccessibilityLabel(L("Copy"))
         rebuildMenu()
+    }
+
+    @objc func toggleSupportedApp(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue, let app = SupportedApp(rawValue: id) else { return }
+        var enabled = SupportedApp.enabled()
+        if sender.state == .on { enabled.insert(app) } else { enabled.remove(app) }
+        SupportedApp.save(enabled)
+        focus?.invalidate()
+        hotKey.syncContext(); orcaAccessibility.start()
+        do { if AutoLaunch.enabled { try AutoLaunch.writeSupportedApps() } }
+        catch { display(L("Unable to update automatic launch. Please try again.")) }
     }
 
     @objc func toggleAutoLaunch(_ sender: NSButton) {

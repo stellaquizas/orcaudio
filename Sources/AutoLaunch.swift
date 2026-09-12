@@ -10,6 +10,11 @@ struct AutoLaunch {
         process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
         try process.run(); process.waitUntilExit(); return process.terminationStatus
     }
+    static func writeSupportedApps() throws {
+        let bundles = SupportedApp.enabled().flatMap(\.bundleIdentifiers).sorted()
+        try PropertyListSerialization.data(fromPropertyList: bundles, format: .xml, options: 0)
+            .write(to: directory.appendingPathComponent("apps.plist"), options: .atomic)
+    }
     static func setEnabled(_ enabled: Bool) throws {
         let service = "gui/\(getuid())/\(label)"
         if !enabled {
@@ -21,6 +26,7 @@ struct AutoLaunch {
         guard let bundled = Bundle.main.resourceURL?.appendingPathComponent("OrcaWatcher"), FileManager.default.fileExists(atPath: bundled.path) else { throw DictationError(L("Launch helper missing. Reinstall Orcaudio.")) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: plist.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try writeSupportedApps()
         let helper = directory.appendingPathComponent("OrcaWatcher")
         let candidate = directory.appendingPathComponent("OrcaWatcher.new")
         try? FileManager.default.removeItem(at: candidate)

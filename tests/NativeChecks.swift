@@ -34,6 +34,13 @@ import Carbon
         let probe = Shortcut(key: 90, modifiers: UInt32(controlKey | optionKey | cmdKey), label: "test F20")
         assert(first.register(probe))
         assert(!second.register(probe), "A conflicting shortcut must not replace an existing registration")
+        // Disabled app scope releases the Carbon shortcut for the foreground app.
+        let previousApps = UserDefaults.standard.object(forKey: "supportedApps")
+        SupportedApp.save([])
+        first.followSupportedApps()
+        assert(second.register(probe), "Disabled apps must keep their own shortcut")
+        if let previousApps { UserDefaults.standard.set(previousApps, forKey: "supportedApps") }
+        else { UserDefaults.standard.removeObject(forKey: "supportedApps") }
         let focus = FocusGuard()
         focus.invalidate()
         let originalCount = NSPasteboard.general.changeCount

@@ -33,6 +33,21 @@ final class HotKey {
     private var ref: EventHotKeyRef?
     private var handler: EventHandlerRef?
     var onPress: (() -> Void)?
+    private var configured: Shortcut?
+    private var active = true
+    private var activationObserver: NSObjectProtocol?
+    var onAvailability: ((Bool) -> Void)?
+    func followSupportedApps() {
+        syncContext()
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in self?.syncContext() }
+    }
+    func syncContext() {
+        let shouldActivate = SupportedApp.accepts(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        guard active != shouldActivate else { return }
+        active = shouldActivate
+        if !active { if let ref { UnregisterEventHotKey(ref); self.ref = nil } }
+        else if let configured { onAvailability?(register(configured)) }
+    }
     init() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, _, pointer in
@@ -47,10 +62,13 @@ final class HotKey {
                                          GetApplicationEventTarget(), 0, &candidate)
         guard status == noErr else { return false }
         if let ref { UnregisterEventHotKey(ref) }
-        ref = candidate
+        configured = shortcut
+        if active { ref = candidate }
+        else { if let candidate { UnregisterEventHotKey(candidate) }; ref = nil }
         return true
     }
     deinit {
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
         if let ref { UnregisterEventHotKey(ref) }
         if let handler { RemoveEventHandler(handler) }
     }

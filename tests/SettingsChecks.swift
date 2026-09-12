@@ -10,6 +10,9 @@ import AppKit
   let delegate = AppDelegate(root: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
   delegate.lastResult = "唔好改 README.md"
   delegate.createSettings()
+  assert(delegate.appCheckboxes.count == 3)
+  assert(delegate.appCheckboxes[.chatgpt]?.title == "ChatGPT")
+  assert(delegate.launchCheckbox?.title == "Launch with enabled apps")
   assert(delegate.modelDiskBytes() > 2_400_000_000 && delegate.modelDiskBytes() < 3_000_000_000)
   assert(delegate.downloadButton?.isEnabled == false)
   let empty = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

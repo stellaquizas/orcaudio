@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var downloadLabel: NSTextField?
     var downloadError: String?
     var launchCheckbox: NSButton?
+    var appCheckboxes: [SupportedApp: NSButton] = [:]
     let hotKey = HotKey()
     let orcaAccessibility = OrcaAccessibility()
     var shortcut = Shortcut.load()
@@ -95,7 +96,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.toolTip = "Orcaudio · \(shortcut.label)"
         statusMenu.delegate = self; statusMenu.autoenablesItems = false; statusItem.menu = statusMenu
         hotKey.onPress = { [weak self] in self?.toggle() }
+        hotKey.onAvailability = { [weak self] available in
+            self?.shortcutOK = available
+            if !available { self?.display(L("Shortcut unavailable. Choose another in Settings.")) }
+        }
+        hotKey.followSupportedApps()
         shortcutOK = hotKey.register(shortcut)
+        if AutoLaunch.enabled { try? AutoLaunch.setEnabled(true) }
         if !shortcutOK { stateText = L("Shortcut unavailable. Choose another in Settings.") }
         worker.onMessage = { [weak self] message in self?.receive(message) }
         recorder.onDeviceChange = { [weak self] in
@@ -137,9 +144,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func interaction(_ event: NSEvent) {
+        if event.type == .keyDown, shortcut.matches(event), !event.isARepeat,
+           !SupportedApp.accepts(NSWorkspace.shared.frontmostApplication?.bundleIdentifier) {
+            if phase == .idle { display(InputFailure.unsupported.message) }
+            return // Observe without consuming the other app's shortcut.
+        }
         guard phase == .starting || phase == .recording || phase == .transcribing || phase == .permission else { return }
         if event.type == .keyDown, event.keyCode == 53 { cancel(); return }
         if event.type == .keyDown, shortcut.matches(event) { return }
+        if phase == .starting && focus == nil { requestID = UUID().uuidString; phase = .idle; display(InputFailure.changed.message) }
         focus?.invalidate()
     }
 
@@ -209,25 +222,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func hidePanel() { panelDismissal?.cancel(); panelDismissal = nil; panel.orderOut(nil); voiceWave.setAnimating(false); voiceAnchor = nil; if phase == .idle { lastResult = ""; resultLabel.stringValue = "" } }
 
     @objc func toggle() {
+        guard SupportedApp.accepts(NSWorkspace.shared.frontmostApplication?.bundleIdentifier) || NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier && phase != .idle else {
+            if phase == .idle { display(InputFailure.unsupported.message) }
+            return
+        }
         if phase == .starting { cancel(); return }
         if phase == .recording { stopRecording(); return }
         guard phase == .idle else { return }
-        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.stablyai.orca" else {
-            display(L("Select an input in Orca first."))
-            return
-        }
         guard modelAvailable else { showSettings(); return }
         guard AXIsProcessTrusted() else { showSettings(); display(L("Allow Accessibility, then try your shortcut again.")); return }
         guard globalMonitor != nil else { display(L("Unable to monitor focus. Restart Orcaudio.")); return }
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized: beginRecording()
+        case .authorized: prepareChatInput()
         case .notDetermined:
             phase = .permission
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] allowed in
                 DispatchQueue.main.async {
                     guard let self, self.phase == .permission else { return }
                     self.phase = .idle
-                    self.display(allowed ? L("Microphone allowed. Return to Orca and try again.") : L("Allow microphone access in Settings."))
+                    self.display(allowed ? L("Microphone allowed. Return to your app and try again.") : L("Allow microphone access in Settings."))
                     self.refreshPermissions()
                 }
             }
@@ -235,12 +248,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    func prepareChatInput() {
+        phase = .starting; requestID = UUID().uuidString
+        let id = requestID
+        display(L("Finding chat input"))
+        // Allow Electron's accessibility tree to initialize after launch/activation.
+        if let front = NSWorkspace.shared.frontmostApplication { OrcaAccessibility.prepare(front) }
+        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        func resolve(_ retries: Int) {
+            guard self.phase == .starting, self.requestID == id else { return }
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == frontPID else {
+                self.phase = .idle; self.display(InputFailure.changed.message); return
+            }
+            switch ChatInput.select() {
+            case .failure(let error):
+                if retries > 0, error == .missing {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { resolve(retries - 1) }; return
+                }
+                self.phase = .idle; self.display(error.message)
+            case .success(let selection):
+                if selection.alreadyFocused {
+                    self.beginRecording(guardObject: FocusGuard(snapshot: selection.snapshot())); return
+                }
+                guard selection.stillFrontmost(), AXUIElementSetAttributeValue(selection.element, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else {
+                    self.phase = .idle; self.display(InputFailure.unavailable.message); return
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                    guard self.phase == .starting, self.requestID == id else { return }
+                    guard selection.snapshot() != nil, let endOffset = ChatInput.endOffset(selection.element) else {
+                        self.phase = .idle; self.display(InputFailure.changed.message); return
+                    }
+                    var end = CFRange(location: endOffset, length: 0)
+                    guard let range = AXValueCreate(.cfRange, &end),
+                          AXUIElementSetAttributeValue(selection.element, kAXSelectedTextRangeAttribute as CFString, range) == .success,
+                          axRange(selection.element)?.location == end.location, axRange(selection.element)?.length == 0 else {
+                        self.phase = .idle; self.display(InputFailure.unavailable.message); return
+                    }
+                    // Install the guard after the intentional focus/range change.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        guard self.phase == .starting, self.requestID == id else { return }
+                        self.beginRecording(guardObject: FocusGuard(snapshot: selection.snapshot()))
+                    }
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { resolve(2) }
+    }
+
     func beginRecording(guardObject: FocusGuard = FocusGuard()) {
         requestID = UUID().uuidString
         focus = guardObject
-        guard guardObject.snapshot != nil else {
-            guardObject.stop(); focus = nil
-            display(L("Orca input is not ready. Click the input and try your shortcut again."))
+        guard guardObject.canPaste else {
+            guardObject.stop(); focus = nil; phase = .idle
+            display(L("Unable to focus the chat input. Click it and try again."))
             return
         }
         // Any later mouse/key/focus change makes this result manual-copy only.
@@ -256,6 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     func startCapture() {
+        guard focus?.canPaste == true else { cancel(message: InputFailure.changed.message); return }
         do {
             modelLoadStarted = Date()
             try worker.send(["op": "load", "id": requestID])
@@ -371,7 +432,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let status = NSMenuItem(title: "Orcaudio · \(shortcut.label)", action: nil, keyEquivalent: ""); status.isEnabled = false; statusMenu.addItem(status)
         let modelState = NSMenuItem(title: worker.loaded ? L("Model ready") : L("Model asleep · loads when you start"), action: nil, keyEquivalent: "")
         modelState.isEnabled = false; statusMenu.addItem(modelState)
-        item(phase == .recording ? L("Stop recording") : L("Start recording in Orca"), #selector(toggle), enabled: phase == .idle || phase == .recording)
+        item(phase == .recording ? L("Stop recording") : L("Start recording"), #selector(toggle), enabled: phase == .idle || phase == .recording)
         item(L("Cancel"), #selector(cancelAction), enabled: phase == .starting || phase == .recording || phase == .transcribing)
         statusMenu.addItem(.separator())
         item(L("Settings…"), #selector(showSettings))

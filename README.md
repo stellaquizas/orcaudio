@@ -4,17 +4,17 @@
 
 # Orcaudio
 
-Local Cantonese + English dictation for Orca on Apple Silicon Macs.
-Speak naturally, insert text into the focused Orca input, then review and send it yourself.
+Local Cantonese + English dictation for Orca, Cursor and the ChatGPT desktop app (including Codex mode) on Apple Silicon Macs.
+Speak naturally, insert text into your chat input, then review and send it yourself.
 
 ## Features
 
 - On-device Qwen3-ASR 1.7B, MLX 8-bit recognition. No paid API or cloud transcription.
 - Traditional Chinese output with English words preserved; no text-generation model.
-- Configurable global shortcut (default Control–Option–Space), system-default microphone or a selected device.
-- Animated voice capsule beside the input; falls back near the Orca window when caret coordinates are unavailable.
+- Configurable app-scoped shortcut (default Control–Option–Space), system-default microphone or a selected device.
+- Animated voice capsule beside the input; falls back near the active supported window when caret coordinates are unavailable.
 - English and Traditional Chinese interface; English by default.
-- Optional launch with Orca, manual model download, and live MLX memory usage.
+- Choose which apps to enable (Orca only by default). Optional launch with any enabled app, manual model download, and live MLX memory usage.
 
 ## Requirements and first use
 
@@ -23,9 +23,13 @@ Apple Silicon Mac, macOS 14 or later. Intel builds are not provided.
 1. Put the standalone app in Applications and open it.
 2. In Settings, download **Qwen3-ASR 1.7B · 8-bit** (approximately 2.47 GB). The app ships without a model.
 3. Allow Microphone and Accessibility access.
-4. Focus an input in Orca and press the shortcut to start; press again to stop. Escape cancels. Maximum recording length is two minutes.
+4. In Settings, enable the apps you want to use. Bring one to the front and press the shortcut to start; press again to stop. Escape cancels. Maximum recording length is two minutes.
 
-The app only attempts paste; it never sends Return. Moving to another input, window or app prevents automatic paste. A temporary Copy control is available for the current result. The capsule disappears after two seconds; no result history is kept. Check the input before manually pasting again if paste confirmation is unavailable.
+Orcaudio locates the main chat input using accessibility structure, without matching placeholder text or fixed screen coordinates. If it is not focused, Orcaudio focuses it and places the cursor after any draft. An already focused input keeps its selection/cursor; selected text is replaced on paste. Cursor support targets its Agents chat interface, not the code editor or terminal. ChatGPT and Codex modes in the desktop app share the ChatGPT switch.
+
+Search/rename fields, dialogs, missing or ambiguous inputs produce a short reminder instead of recording. In other apps the shortcut is not consumed, so their own shortcuts continue to work.
+
+The app only attempts paste; it never sends Return. Moving to another input, conversation, window or app prevents automatic paste. A temporary Copy control is available for the current result. The capsule disappears after two seconds; no result history is kept. Check the input before manually pasting again if paste confirmation is unavailable.
 
 ## Storage and privacy
 
@@ -70,7 +74,7 @@ The build script applies local ad-hoc signing. Rebuilding may require macOS perm
 ## Source layout
 
 - `Sources/`: native menu app, recording, focus/paste safety, settings, download controller and voice overlay.
-- `Helpers/`: optional Orca launch watcher.
+- `Helpers/`: optional supported-app launch watcher.
 - `asr.py`: model loading, audio validation/resampling and transcription.
 - `worker.py`: offline JSON-lines recognition process and memory readings.
 - `download_model.py`: explicit download of a pinned model revision.
@@ -87,4 +91,4 @@ Run from a configured checkout. Worker/resource integration tests need the model
 
 ## Optional launch helper
 
-Enabling Launch with Orca installs a user LaunchAgent at `~/Library/LaunchAgents/local.stellacheng.orcaudio.watcher.plist` and a small helper under `~/Library/Application Support/Orcaudio/Launcher`. Disabling the setting removes both. The helper observes Orca launches; it does not load the model or record audio.
+Enabling Launch with enabled apps installs a user LaunchAgent at `~/Library/LaunchAgents/local.stellacheng.orcaudio.watcher.plist` and a small helper under `~/Library/Application Support/Orcaudio/Launcher`. Disabling the setting removes both. The helper observes launches of the apps selected in Settings, and checks whether one is already running when the helper starts. Closing those apps leaves Orcaudio in the menu bar; it does not load the model or record audio.

@@ -1,8 +1,13 @@
 import AppKit
 
-// Launched only after the user enables “Launch with Orca”. No microphone or model work.
+// Launched only after the user enables “Launch with enabled apps”. No microphone or model work.
 let workspace = NSWorkspace.shared
 let config = URL(fileURLWithPath: CommandLine.arguments[1])
+func isEnabled(_ bundle: String?) -> Bool {
+    guard let bundle, let data = try? Data(contentsOf: config.deletingLastPathComponent().appendingPathComponent("apps.plist")),
+          let bundles = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String] else { return false }
+    return bundles.contains(bundle)
+}
 func launchCompanion() {
     guard let data = try? Data(contentsOf: config) else { return }
     var stale = false
@@ -14,7 +19,7 @@ func launchCompanion() {
 }
 let observer = workspace.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { notification in
     if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-       app.bundleIdentifier == "com.stablyai.orca" { launchCompanion() }
+       isEnabled(app.bundleIdentifier) { launchCompanion() }
 }
-if !NSRunningApplication.runningApplications(withBundleIdentifier: "com.stablyai.orca").isEmpty { launchCompanion() }
+if workspace.runningApplications.contains(where: { isEnabled($0.bundleIdentifier) }) { launchCompanion() }
 RunLoop.main.run()
