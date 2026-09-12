@@ -17,6 +17,33 @@ func axRange(_ element: AXUIElement) -> CFRange? {
     return range
 }
 
+/// Electron creates its accessibility tree lazily, even when this process has TCC access.
+/// Request the supported assistive-technology interface; never activate the target app.
+final class OrcaAccessibility {
+    private var observers: [NSObjectProtocol] = []
+    static func prepare(_ application: NSRunningApplication) {
+        guard AXIsProcessTrusted(), application.bundleIdentifier == "com.stablyai.orca" else { return }
+        let element = AXUIElementCreateApplication(application.processIdentifier)
+        AXUIElementSetMessagingTimeout(element, 0.15)
+        _ = AXUIElementSetAttributeValue(element, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+    func start() {
+        stop()
+        let workspace = NSWorkspace.shared
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didActivateApplicationNotification] {
+            observers.append(workspace.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { event in
+                if let app = event.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication { Self.prepare(app) }
+            })
+        }
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: "com.stablyai.orca") { Self.prepare(app) }
+    }
+    func stop() {
+        for observer in observers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        observers.removeAll()
+    }
+    deinit { stop() }
+}
+
 struct FocusSnapshot {
     let pid: pid_t
     let app: AXUIElement
@@ -30,6 +57,7 @@ struct FocusSnapshot {
     static func capture() -> FocusSnapshot? {
         guard AXIsProcessTrusted(), let front = NSWorkspace.shared.frontmostApplication,
               front.bundleIdentifier == "com.stablyai.orca" else { return nil }
+        OrcaAccessibility.prepare(front)
         let app = AXUIElementCreateApplication(front.processIdentifier)
         AXUIElementSetMessagingTimeout(app, 0.15)
         guard let window = axElement(app, kAXFocusedWindowAttribute),
@@ -69,8 +97,8 @@ final class FocusGuard {
     private var axObserver: AXObserver?
     var onInvalidate: (() -> Void)?
 
-    init() {
-        snapshot = FocusSnapshot.capture()
+    init(snapshot: FocusSnapshot? = FocusSnapshot.capture()) {
+        self.snapshot = snapshot
         invalidated = snapshot == nil
         if let s = snapshot {
             var observer: AXObserver?

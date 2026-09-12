@@ -139,4 +139,5 @@ let traditionalChineseStrings: [String: String] = [
     "The transcript exceeded the length limit. Try a shorter recording.": "辨識結果超過長度限制，請縮短錄音後再試。",
     "Transcription failed. Please try again.": "辨識失敗，請再試一次。",
     "Unable to read the recording. Please try again.": "無法讀取錄音，請再試一次。",
+    "Orca input is not ready. Click the input and try your shortcut again.": "尚未能讀取 Orca 輸入位置，請點選輸入框後再按快捷鍵。",
 ]

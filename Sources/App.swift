@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var downloadError: String?
     var launchCheckbox: NSButton?
     let hotKey = HotKey()
+    let orcaAccessibility = OrcaAccessibility()
     var shortcut = Shortcut.load()
     var phase = Phase.idle { didSet { if oldValue != phase && tick != nil { scheduleTick() } } }
     var requestID = UUID().uuidString
@@ -65,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var modelSizeLabel: NSTextField?
     var gpuMemoryLabel: NSTextField?
     private var lastSettingsRefresh = Date.distantPast
+    private var accessibilityWasTrusted = false
     var panelCancelButton: NSButton?
     var panelDismissButton: NSButton?
     var shortcutField: ShortcutField?
@@ -86,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.downloadError = error; self.refreshDownload()
             self.modelSizeLabel?.stringValue = self.modelSize(); self.refreshPermissions()
         }
+        orcaAccessibility.start()
         setupPanel()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = brandIcon
@@ -126,6 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        orcaAccessibility.stop()
         downloader.cancel(); worker.shutdown(); recorder.cleanup(); focus?.stop()
         tick?.invalidate()
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
@@ -233,9 +237,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    func beginRecording() {
+    func beginRecording(guardObject: FocusGuard = FocusGuard()) {
         requestID = UUID().uuidString
-        let guardObject = FocusGuard(); focus = guardObject
+        focus = guardObject
+        guard guardObject.snapshot != nil else {
+            guardObject.stop(); focus = nil
+            display(L("Orca input is not ready. Click the input and try your shortcut again."))
+            return
+        }
         // Any later mouse/key/focus change makes this result manual-copy only.
         guardObject.onInvalidate = { [weak self] in self?.detailLabel.stringValue = L("Focus changed · copy the result when ready") }
         voiceAnchor = VoiceAnchor.capture(guardObject.snapshot)
@@ -417,6 +426,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func refreshPermissions() {
         let mic = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
         let access = AXIsProcessTrusted()
+        if access && !accessibilityWasTrusted { orcaAccessibility.start() }
+        accessibilityWasTrusted = access
         microphoneStatus?.stringValue = mic ? L("Allowed") : L("Not allowed")
         accessibilityStatus?.stringValue = access ? L("Allowed") : L("Not allowed")
         microphoneStatus?.textColor = mic ? .systemGreen : .secondaryLabelColor
