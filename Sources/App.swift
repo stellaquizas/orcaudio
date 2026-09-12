@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return image
     }()
     let statusMenu = NSMenu()
-    let panel = StatusPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 48), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    let panel = StatusPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 48), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let statusLabel = NSTextField(wrappingLabelWithString: L("Ready"))
     let detailLabel = NSTextField(wrappingLabelWithString: "")
     let resultLabel = NSTextField(wrappingLabelWithString: "")
@@ -151,14 +151,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         effect.appearance = NSAppearance(named: .darkAqua)
         panel.contentView = effect
         voiceWave.translatesAutoresizingMaskIntoConstraints = false
-        voiceWave.widthAnchor.constraint(equalToConstant: 38).isActive = true
+        voiceWave.widthAnchor.constraint(equalToConstant: 116).isActive = true
         voiceWave.heightAnchor.constraint(equalToConstant: 26).isActive = true
         statusLabel.font = .systemFont(ofSize: 11.5, weight: .semibold)
         statusLabel.maximumNumberOfLines = 2; statusLabel.lineBreakMode = .byTruncatingTail
         voiceSubtitle.font = .systemFont(ofSize: 9.5); voiceSubtitle.textColor = .secondaryLabelColor
         voiceSubtitle.lineBreakMode = .byTruncatingTail
         let words = NSStackView(views: [statusLabel, voiceSubtitle]); words.orientation = .vertical; words.alignment = .leading; words.spacing = 2
-        words.widthAnchor.constraint(equalToConstant: 210).isActive = true
+        words.widthAnchor.constraint(equalToConstant: 192).isActive = true
         for label in [statusLabel, voiceSubtitle] { label.widthAnchor.constraint(equalTo: words.widthAnchor).isActive = true }
         stopButton.target = self; stopButton.action = #selector(toggle)
         stopButton.image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: L("Stop"))
@@ -177,8 +177,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func refreshVoice() {
         let active = phase == .starting || phase == .recording || phase == .transcribing
         voiceWave.mode = phase == .recording ? .listening : active ? .thinking : .ready
-        voiceWave.level = recorder.level
-        voiceWave.setAnimating(active && panel.isVisible)
+        voiceWave.levels = recorder.waveform
+        voiceWave.setAnimating(active && phase != .recording && panel.isVisible)
         stopButton.isHidden = phase != .recording
         copyButton.isHidden = phase != .idle || lastResult.isEmpty
         panelDismissButton?.toolTip = phase == .idle ? L("Dismiss") : L("Cancel")

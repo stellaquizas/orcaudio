@@ -75,8 +75,9 @@ final class VoiceCapsuleSurface: NSView {
 final class VoiceWave: NSView {
     enum Mode { case listening, thinking, ready }
     var mode = Mode.ready
-    var level: Double = 0
-    private var smoothed: Double = 0
+    var levels = [Double](repeating: 0, count: VoiceMeter.barCount) {
+        didSet { needsDisplay = true }
+    }
     private var clock: Timer?
     private var time: Double = 0
     func setAnimating(_ active: Bool) {
@@ -85,7 +86,6 @@ final class VoiceWave: NSView {
             let timer = Timer(timeInterval: 1.0 / 24, repeats: true) { [weak self] _ in
                 guard let self else { return }
                 self.time += 1.0 / 24
-                self.smoothed += (self.level - self.smoothed) * 0.3
                 self.needsDisplay = true
             }
             timer.tolerance = 0.008; clock = timer; RunLoop.main.add(timer, forMode: .common)
@@ -94,18 +94,18 @@ final class VoiceWave: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let t = reduced ? 0 : time
-        for index in 0..<7 {
+        for index in 0..<VoiceMeter.barCount {
             let i = Double(index)
-            let envelope = 1 - abs(i - 3) / 4
+            let envelope = 1 - abs(i - 11) / 12
             let signal: Double
             switch mode {
-            case .listening: signal = (0.08 + min(1, smoothed * 12) * 0.92) * envelope * (0.65 + 0.35 * sin(t * 10 + i * 1.7))
+            case .listening: signal = levels.indices.contains(index) ? levels[index] : 0
             case .thinking: signal = (0.25 + 0.6 * (sin(t * 4 - i * 0.7) + 1) / 2) * envelope
             case .ready: signal = 0.22 * envelope
             }
             let height = 3 + 21 * signal
             NSColor(white: 0.94, alpha: 0.65 + envelope * 0.35).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 2 + i * 5.3, y: (bounds.height - height) / 2, width: 3, height: height), xRadius: 2, yRadius: 2).fill()
+            NSBezierPath(roundedRect: NSRect(x: 2 + i * 5, y: (bounds.height - height) / 2, width: 3, height: height), xRadius: 2, yRadius: 2).fill()
         }
     }
     deinit { clock?.invalidate() }

@@ -49,6 +49,26 @@ struct DictationError: LocalizedError {
     init(_ message: String) { self.message = message }
 }
 
+/// Fixed 50 ms RMS windows from the actual recorded PCM; only 1.15 seconds of
+/// scalar levels are retained in memory (never audio or transcript history).
+struct VoiceMeter {
+    static let barCount = 23
+    private(set) var levels = [Double](repeating: 0, count: barCount)
+    private var power = 0.0
+    private var count = 0
+    mutating func append(_ sample: Float) {
+        let value = sample.isFinite ? Double(sample) : 0
+        power += value * value; count += 1
+        if count == 800 {
+            let rms = sqrt(power / Double(count))
+            // Fixed -60…-18 dB range, without automatic gain or invented motion.
+            let amplitude = min(1, max(0, (20 * log10(max(rms, 0.000001)) + 60) / 42))
+            levels.removeFirst(); levels.append(amplitude)
+            power = 0; count = 0
+        }
+    }
+}
+
 final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     private var session: AVCaptureSession?
     private var output: AVCaptureAudioDataOutput?
@@ -60,6 +80,7 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     private var frames: AVAudioFramePosition = 0
     private var energy: Double = 0
     private var peak: Double = 0
+    private var meter = VoiceMeter()
     private let rate = 16000.0
     private let limit: AVAudioFramePosition = 1_920_000
     private var deviceID: AudioDeviceID = 0
@@ -70,6 +91,10 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     var url: URL?
 
     var level: Double { lock.lock(); defer { lock.unlock() }; return peak }
+    var waveform: [Double] {
+        lock.lock(); defer { lock.unlock() }
+        return active && Date().timeIntervalSince(lastBuffer) < 0.3 ? meter.levels : Array(repeating: 0, count: VoiceMeter.barCount)
+    }
     var isDeviceAlive: Bool {
         let alive: UInt32 = audioProperty(deviceID, kAudioDevicePropertyDeviceIsAlive, initial: UInt32(0)) ?? 0
         return alive == 1
@@ -105,6 +130,7 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
         } catch { try? FileManager.default.removeItem(at: folder); throw error }
         self.url = path; self.session = session; self.output = output; deviceID = selected.id
+        meter = VoiceMeter()
         frames = 0; energy = 0; failure = nil; peak = 0; active = true; lastBuffer = Date()
         output.setSampleBufferDelegate(self, queue: queue)
         // Watch the selected input, not AVAudioEngine's unrelated output-route changes.
@@ -132,7 +158,10 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         guard CMSampleBufferCopyPCMDataIntoAudioBufferList(sampleBuffer, at: 0, frameCount: Int32(count), into: buffer.mutableAudioBufferList) == noErr,
               let samples = buffer.floatChannelData?[0] else { failure = L("Unable to read microphone audio."); return }
         var power: Double = 0
-        for i in 0..<count { power += Double(samples[i] * samples[i]) }
+        for i in 0..<count {
+            power += Double(samples[i] * samples[i])
+            meter.append(samples[i])
+        }
         energy += power; peak = sqrt(power / Double(count)); lastBuffer = Date()
         do { try file?.write(from: buffer) } catch { failure = L("Unable to save microphone audio. Check available disk space.") }
         frames += AVAudioFramePosition(count)
@@ -144,7 +173,7 @@ final class Recorder: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         session?.stopRunning(); output?.setSampleBufferDelegate(nil, queue: nil)
         queue.sync {} // Drain already-delivered buffers before closing the WAV.
         lock.lock()
-        active = false; file = nil
+        active = false; file = nil; meter = VoiceMeter()
         let error = failure ?? (frames < AVAudioFramePosition(rate) ? L("Recording is shorter than one second.") : nil)
             ?? (sqrt(energy / Double(max(frames, 1))) < 0.001 ? L("No clear audio detected. Nothing pasted.") : nil)
         lock.unlock()
