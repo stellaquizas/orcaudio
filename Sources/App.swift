@@ -199,6 +199,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func dismissVoice() { if phase == .idle { hidePanel() } else { cancel() } }
     func refreshVoice() {
         let active = phase == .starting || phase == .recording || phase == .transcribing
+        voiceWave.isHidden = !active
+        let size = NSSize(width: active ? 400 : 276, height: 48)
+        if panel.frame.size != size {
+            panel.setContentSize(size)
+            if let anchor = voiceAnchor { panel.setFrameOrigin(anchor.origin(size: size)) }
+        }
         voiceWave.mode = phase == .recording ? .listening : active ? .thinking : .ready
         voiceWave.levels = recorder.waveform
         voiceWave.setAnimating(active && phase != .recording && panel.isVisible)
@@ -215,6 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     func showPanel(hideAfter delay: TimeInterval = 2) {
         panelDismissal?.cancel(); panelDismissal = nil
+        refreshVoice()
         if voiceAnchor == nil { voiceAnchor = VoiceAnchor.capture(nil) }
         if let anchor = voiceAnchor { panel.setFrameOrigin(anchor.origin(size: panel.frame.size)) }
         panel.orderFrontRegardless()
