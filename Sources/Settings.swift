@@ -107,7 +107,7 @@ extension AppDelegate {
             row(L("Supported apps"), [appChoices]),
             caption(L("ChatGPT includes Codex mode. Only chat inputs are supported."), size: 11, secondary: true),
             row(L("Startup"), [launch]), row(L("App language"), [uiLanguage]), row(L("Microphone"), [microphone, refresh]),
-            row(L("Shortcut"), [field]), row(L("Mode switching"), [NSTextField(labelWithString: L("⇧Tab · Cursor / Codex input"))]), row(L("Speech language"), [language]),
+            row(L("Shortcut"), [field]), row(L("Mode switching"), [NSTextField(labelWithString: L("⇧Tab · Orca / Cursor / Codex input"))]), row(L("Speech language"), [language]),
             caption(L("App language does not change transcription language."), secondary: true)
         ])
 

@@ -16,7 +16,9 @@ Speak naturally, insert text into your chat input, then review and send it yours
 - English and Traditional Chinese interface; English by default.
 - Choose which apps to enable (Orca only by default). Optional launch with any enabled app, manual model download, and live MLX memory usage.
 
-Press **Shift + Tab** in an enabled Cursor or ChatGPT app to focus its chat input and cycle modes. Cursor uses its native cycle: Agent → Plan → Debug → Multitask → Ask. In ChatGPT, this shortcut applies only to the **Codex** input: Default → Plan → Goal. It preserves the draft and does not send a message or start a goal. An existing running or paused goal must be managed in the app before switching. Search fields and dialogs retain normal Shift + Tab navigation. Mode switching does not load the speech model or use the microphone.
+Press **Shift + Tab** in an enabled Orca, Cursor or ChatGPT app to focus its chat input and cycle modes. Cursor uses its native cycle: Agent → Plan → Debug → Multitask → Ask. In ChatGPT, this shortcut applies only to the **Codex** input: Default → Plan → Goal. It preserves the draft and does not send a message or start a goal. An existing running or paused goal must be managed in the app before switching. Search fields and dialogs retain normal Shift + Tab navigation. Mode switching does not load the speech model or use the microphone.
+
+In Orca, Orcaudio focuses the visible terminal input and forwards one native Shift + Tab. Codex, Claude Code and Cursor agents control their own mode order and dialog behavior. The brief notice acknowledges the shortcut; the agent's own interface shows the resulting mode. Orcaudio does not infer the agent identity or current mode from terminal titles or transcript text, and sends no slash command or Enter. Ambiguous inputs are not automatically focused; changing apps or input targets cancels an in-flight switch.
 
 ## Requirements and first use
 

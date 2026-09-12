@@ -8,7 +8,7 @@ import AppKit
   }
   assert(!ModeShortcut.matches(key: 49,flags:.maskShift))
   SupportedApp.save([.orca,.cursor,.chatgpt])
-  assert(!ModeShortcut.accepts("com.stablyai.orca"))
+  assert(ModeShortcut.accepts("com.stablyai.orca"))
   assert(!ModeShortcut.accepts("com.apple.Terminal"))
   assert(!ModeShortcut.accepts(nil))
   assert(ModeShortcut.accepts("com.openai.codex"))

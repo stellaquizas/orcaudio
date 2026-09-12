@@ -13,7 +13,7 @@ final class ModeShortcut {
         key == 48 && flags.intersection([.maskShift, .maskControl, .maskAlternate, .maskCommand]) == .maskShift
     }
     static func accepts(_ bundle: String?) -> Bool {
-        SupportedApp.accepts(bundle) && [.cursor, .chatgpt].contains(SupportedApp.identify(bundle))
+        SupportedApp.accepts(bundle) && [.orca, .cursor, .chatgpt].contains(SupportedApp.identify(bundle))
     }
     func start() {
         guard tap == nil, AXIsProcessTrusted() else { return }
@@ -127,7 +127,7 @@ final class ModeSwitcher {
             onStatus?(L("No available chat input found.")); return
         }
         let kind = SupportedApp.identify(target.application.bundleIdentifier)!
-        guard kind == .cursor || kind == .chatgpt else { return }
+        guard kind == .orca || kind == .cursor || kind == .chatgpt else { return }
         guard kind != .chatgpt || Self.isCodex(target.window) else {
             ModeShortcut.forward(to: pid); return
         }
@@ -139,6 +139,10 @@ final class ModeSwitcher {
             self?.cancel()
         }
         activation = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in self?.cancel() }
+        if kind == .orca {
+            cycleOrca(target, token: token)
+            return
+        }
         if !target.alreadyFocused {
             guard AXUIElementSetAttributeValue(target.element, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else { finish(L("Unable to focus the chat input. Click it and try again.")); return }
         }
@@ -172,6 +176,24 @@ final class ModeSwitcher {
                 }
                 self.chooseCodex(next, token: token)
             }
+        }
+    }
+    private func cycleOrca(_ target: InputSelection, token: Int) {
+        // Orca's terminal.resolveActive can return another tab's active leaf.
+        // Target the actual accessible input; the agent owns the native cycle.
+        if !target.alreadyFocused {
+            guard AXUIElementSetAttributeValue(target.element, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else {
+                finish(L("Unable to focus the chat input. Click it and try again.")); return
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            guard let self, self.busy, self.generation == token else { return }
+            guard let snapshot = target.snapshot(), snapshot.unchanged() else {
+                self.finish(L("Input changed. Try your shortcut again.")); return
+            }
+            // No slash commands, Return, guessed agent identity or mode list.
+            ModeShortcut.forward(to: target.application.processIdentifier)
+            self.finish(L("Orca · shortcut sent"))
         }
     }
     private func valid() -> Bool {

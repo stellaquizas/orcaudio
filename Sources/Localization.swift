@@ -9,6 +9,8 @@ func L(_ english: String) -> String {
 
 let traditionalChineseStrings: [String: String] = [
     "Manage the current goal before switching modes.": "請先處理目前的 Goal，再切換模式。",
+    "Orca · shortcut sent": "Orca · 已傳送切換快捷鍵",
+    "⇧Tab · Orca / Cursor / Codex input": "⇧Tab · Orca／Cursor／Codex 輸入框",
     "Mode switching": "切換模式",
     "⇧Tab · Cursor / Codex input": "⇧Tab · Cursor／Codex 輸入框",
     "Finish dictation before switching modes.": "請先完成聽寫，再切換模式。",
