@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var launchCheckbox: NSButton?
     var appCheckboxes: [SupportedApp: NSButton] = [:]
     let hotKey = HotKey()
+    let modeShortcut = ModeShortcut()
+    let modeSwitcher = ModeSwitcher()
     let orcaAccessibility = OrcaAccessibility()
     var shortcut = Shortcut.load()
     var phase = Phase.idle { didSet { if oldValue != phase && tick != nil { scheduleTick() } } }
@@ -95,6 +97,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.image = brandIcon
         statusItem.button?.toolTip = "Orcaudio · \(shortcut.label)"
         statusMenu.delegate = self; statusMenu.autoenablesItems = false; statusItem.menu = statusMenu
+        modeSwitcher.onStatus = { [weak self] message in self?.display(message) }
+        modeShortcut.onPress = { [weak self] pid in
+            guard let self else { return }
+            guard self.phase == .idle else { self.display(L("Finish dictation before switching modes.")); return }
+            self.modeSwitcher.cycle(pid: pid)
+        }
+        modeShortcut.start()
         hotKey.onPress = { [weak self] in self?.toggle() }
         hotKey.onAvailability = { [weak self] available in
             self?.shortcutOK = available
@@ -136,6 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        modeShortcut.stop(); modeSwitcher.cancel()
         orcaAccessibility.stop()
         downloader.cancel(); worker.shutdown(); recorder.cleanup(); focus?.stop()
         tick?.invalidate()
@@ -222,6 +232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func hidePanel() { panelDismissal?.cancel(); panelDismissal = nil; panel.orderOut(nil); voiceWave.setAnimating(false); voiceAnchor = nil; if phase == .idle { lastResult = ""; resultLabel.stringValue = "" } }
 
     @objc func toggle() {
+        modeSwitcher.cancel()
         guard SupportedApp.accepts(NSWorkspace.shared.frontmostApplication?.bundleIdentifier) || NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier && phase != .idle else {
             if phase == .idle { display(InputFailure.unsupported.message) }
             return
@@ -403,6 +414,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     func update() {
+        modeShortcut.start()
         refreshVoice()
         updateModelIndicator()
         copyButton.isEnabled = !lastResult.isEmpty

@@ -8,6 +8,13 @@ func L(_ english: String) -> String {
 }
 
 let traditionalChineseStrings: [String: String] = [
+    "Manage the current goal before switching modes.": "請先處理目前的 Goal，再切換模式。",
+    "Mode switching": "切換模式",
+    "⇧Tab · Cursor / Codex input": "⇧Tab · Cursor／Codex 輸入框",
+    "Finish dictation before switching modes.": "請先完成聽寫，再切換模式。",
+    "Mode controls unavailable. Use the app's mode menu.": "未能找到模式控制項，請使用 App 的模式選單。",
+    "Mode change not confirmed. Check the app's mode menu.": "未能確認模式已切換，請檢查 App 的模式選單。",
+
     "Supported apps": "支援的 App",
     "Launch with enabled apps": "隨已啟用的 App 啟動",
     "ChatGPT includes Codex mode. Only chat inputs are supported.": "ChatGPT 包括 Codex 模式。僅支援聊天輸入框。",
