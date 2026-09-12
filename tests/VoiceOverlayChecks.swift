@@ -3,7 +3,7 @@ import AppKit
  static func main() {
   _ = NSApplication.shared
   let screen = NSRect(x: -1440, y: 200, width: 1440, height: 900)
-  let size = NSSize(width: 360, height: 68)
+  let size = NSSize(width: 340, height: 48)
   for target in [NSRect(x: -1000,y: 450,width: 300,height: 80), NSRect(x: -40,y: 1040,width: 20,height: 20), NSRect(x: -1440,y: 200,width: 1,height: 20)] {
    let point = VoiceAnchor(target: target,screen: screen).origin(size: size)
    assert(screen.contains(NSRect(origin: point,size: size)))
@@ -21,6 +21,10 @@ import AppKit
   let view=app.panel.contentView!; view.layoutSubtreeIfNeeded()
   let bitmap=view.bitmapImageRepForCachingDisplay(in:view.bounds)!
   view.cacheDisplay(in:view.bounds,to:bitmap)
+  assert(app.panel.frame.size == size)
+  assert(!app.panel.hasShadow)
+  assert((bitmap.colorAt(x: 0, y: 0)?.alphaComponent ?? 1) < 0.01, "Capsule corners must be transparent")
+  assert((bitmap.colorAt(x: bitmap.pixelsWide/2, y: bitmap.pixelsHigh/2)?.alphaComponent ?? 0) > 0.9)
   try! bitmap.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:"/tmp/orcaudio-voice.png"))
   app.phase = .starting; app.requestID = "cancel-start"
   app.cancel()

@@ -57,6 +57,21 @@ struct VoiceAnchor {
     }
 }
 
+/// Draw only the capsule itself. A behind-window blur can paint rectangular backing
+/// outside a layer's cornerRadius, especially over light windows.
+final class VoiceCapsuleSurface: NSView {
+    override var isOpaque: Bool { false }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.clear.setFill()
+        dirtyRect.fill(using: .copy)
+        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let shape = NSBezierPath(roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2)
+        NSGradient(starting: NSColor(white: 0.18, alpha: 0.98), ending: NSColor(white: 0.11, alpha: 0.98))?.draw(in: shape, angle: 90)
+        NSColor.white.withAlphaComponent(0.18).setStroke()
+        shape.lineWidth = 0.7; shape.stroke()
+    }
+}
+
 final class VoiceWave: NSView {
     enum Mode { case listening, thinking, ready }
     var mode = Mode.ready
@@ -88,9 +103,9 @@ final class VoiceWave: NSView {
             case .thinking: signal = (0.25 + 0.6 * (sin(t * 4 - i * 0.7) + 1) / 2) * envelope
             case .ready: signal = 0.22 * envelope
             }
-            let height = 4 + 29 * signal
+            let height = 3 + 21 * signal
             NSColor(white: 0.94, alpha: 0.65 + envelope * 0.35).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 3 + i * 7, y: (bounds.height - height) / 2, width: 4, height: height), xRadius: 2, yRadius: 2).fill()
+            NSBezierPath(roundedRect: NSRect(x: 2 + i * 5.3, y: (bounds.height - height) / 2, width: 3, height: height), xRadius: 2, yRadius: 2).fill()
         }
     }
     deinit { clock?.invalidate() }

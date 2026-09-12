@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return image
     }()
     let statusMenu = NSMenu()
-    let panel = StatusPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 68), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    let panel = StatusPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 48), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let statusLabel = NSTextField(wrappingLabelWithString: L("Ready"))
     let detailLabel = NSTextField(wrappingLabelWithString: "")
     let resultLabel = NSTextField(wrappingLabelWithString: "")
@@ -145,22 +145,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func setupPanel() {
         panel.level = .floating; panel.isOpaque = false; panel.backgroundColor = .clear
-        panel.hasShadow = true; panel.hidesOnDeactivate = false
+        panel.hasShadow = false; panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        let effect = NSVisualEffectView(); effect.material = .popover; effect.blendingMode = .behindWindow; effect.state = .active
+        let effect = VoiceCapsuleSurface()
         effect.appearance = NSAppearance(named: .darkAqua)
-        effect.wantsLayer = true; effect.layer?.cornerRadius = 34; effect.layer?.masksToBounds = true
-        effect.layer?.borderColor = NSColor.white.withAlphaComponent(0.16).cgColor; effect.layer?.borderWidth = 0.7
         panel.contentView = effect
         voiceWave.translatesAutoresizingMaskIntoConstraints = false
-        voiceWave.widthAnchor.constraint(equalToConstant: 52).isActive = true
-        voiceWave.heightAnchor.constraint(equalToConstant: 38).isActive = true
-        statusLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        voiceWave.widthAnchor.constraint(equalToConstant: 38).isActive = true
+        voiceWave.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        statusLabel.font = .systemFont(ofSize: 11.5, weight: .semibold)
         statusLabel.maximumNumberOfLines = 2; statusLabel.lineBreakMode = .byTruncatingTail
-        voiceSubtitle.font = .systemFont(ofSize: 10); voiceSubtitle.textColor = .secondaryLabelColor
+        voiceSubtitle.font = .systemFont(ofSize: 9.5); voiceSubtitle.textColor = .secondaryLabelColor
         voiceSubtitle.lineBreakMode = .byTruncatingTail
-        let words = NSStackView(views: [statusLabel, voiceSubtitle]); words.orientation = .vertical; words.alignment = .leading; words.spacing = 3
-        words.widthAnchor.constraint(equalToConstant: 205).isActive = true
+        let words = NSStackView(views: [statusLabel, voiceSubtitle]); words.orientation = .vertical; words.alignment = .leading; words.spacing = 2
+        words.widthAnchor.constraint(equalToConstant: 210).isActive = true
         for label in [statusLabel, voiceSubtitle] { label.widthAnchor.constraint(equalTo: words.widthAnchor).isActive = true }
         stopButton.target = self; stopButton.action = #selector(toggle)
         stopButton.image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: L("Stop"))
@@ -170,10 +168,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         copyButton.imagePosition = .imageOnly; copyButton.isBordered = false
         let dismiss = NSButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: L("Cancel"))!, target: self, action: #selector(dismissVoice))
         dismiss.isBordered = false; panelDismissButton = dismiss
-        let controls = NSStackView(views: [stopButton, copyButton, dismiss]); controls.spacing = 9
-        let stack = NSStackView(views: [voiceWave, words, controls]); stack.spacing = 10; stack.alignment = .centerY
+        let controls = NSStackView(views: [stopButton, copyButton, dismiss]); controls.spacing = 8
+        let stack = NSStackView(views: [voiceWave, words, controls]); stack.spacing = 8; stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false; effect.addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 15), stack.trailingAnchor.constraint(lessThanOrEqualTo: effect.trailingAnchor, constant: -15), stack.centerYAnchor.constraint(equalTo: effect.centerYAnchor)])
+        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 12), stack.trailingAnchor.constraint(lessThanOrEqualTo: effect.trailingAnchor, constant: -12), stack.centerYAnchor.constraint(equalTo: effect.centerYAnchor)])
     }
     @objc func dismissVoice() { if phase == .idle { hidePanel() } else { cancel() } }
     func refreshVoice() {
